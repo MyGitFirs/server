@@ -2,7 +2,7 @@ const sql = require('mssql');
 
 // Database configuration
 const config = {
-  user: 'admin@2536',
+  user: 'admin@2536@shopp',
   password: 'Timothy@23',
   server: 'shopp.database.windows.net',
   database: 'ShopDB',
@@ -10,7 +10,6 @@ const config = {
   options: {
     encrypt: true, // For Azure
     enableArithAbort: true,
-    trustServerCertificate: false
   }
 };
 
