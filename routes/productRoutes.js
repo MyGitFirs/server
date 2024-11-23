@@ -8,8 +8,8 @@ const { getProducts, addProduct, getProductById, updateProduct, deleteProduct, g
 router.get('/', getProducts);                     // GET all products
 router.post('/', addProduct);                     // POST a new product          
 router.get('/user/:user_id', getProductsByUserId); // GET products by user ID
-router.get('/:id', getProductById);                 // GET a product by ID
-router.put('/:id', updateProduct);                 // PUT to update a product by ID
+router.get('/get_product/:id', getProductById);                 // GET a product by ID
+router.put('/update_product/:id', updateProduct);                 // PUT to update a product by ID
 router.delete('/:id', deleteProduct);
 router.get('/details/:id', getDetailsProducts); 
 
