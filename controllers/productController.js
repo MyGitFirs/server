@@ -212,92 +212,106 @@ const updateProduct = async (req, res) => {
   const productId = req.params.id;
   const { name, description, price, stock_quantity, image_url, harvest_date, freshness_rating, user_id } = req.body;
 
+  let transaction;
+
   try {
-      // Dynamically build the update query and parameters
-      let updateFields = [];
-      let parameters = {};
+    const pool = await sql.connect(config);
 
-      if (name) {
-          updateFields.push('name = @name');
-          parameters.name = name;
-      }
-      if (description) {
-          updateFields.push('description = @description');
-          parameters.description = description;
-      }
-      if (price !== undefined && price !== null) {
-          updateFields.push('price = @price');
-          parameters.price = price;
-      }
-      if (stock_quantity !== undefined && stock_quantity !== null) {
-          updateFields.push('stock_quantity = @stock_quantity');
-          parameters.stock_quantity = stock_quantity;
-      }
-      if (image_url) {
-          updateFields.push('image_url = @image_url');
-          parameters.image_url = image_url;
-      }
-      if (harvest_date) {
-          updateFields.push('harvest_date = @harvest_date');
-          parameters.harvest_date = harvest_date;
-      }
-      if (freshness_rating !== undefined && freshness_rating !== null) {
-          updateFields.push('freshness_rating = @freshness_rating');
-          parameters.freshness_rating = freshness_rating;
-      }
+    // Start a transaction
+    transaction = new sql.Transaction(pool);
+    await transaction.begin();
 
-      // Check if there are fields to update
-      if (updateFields.length === 0) {
-          return res.status(400).json({
-              success: false,
-              error: 'No fields to update.',
-          });
-      }
+    // Dynamically build the update query for the `products` table
+    let updateFields = [];
+    let parameters = {};
 
-      // Construct the dynamic SQL query
-      const query = `
-          UPDATE Products
-          SET ${updateFields.join(', ')}, updated_at = GETDATE()
-          WHERE product_id = @product_id
+    if (name) {
+      updateFields.push('name = @name');
+      parameters.name = name;
+    }
+    if (description) {
+      updateFields.push('description = @description');
+      parameters.description = description;
+    }
+    if (price !== undefined && price !== null) {
+      updateFields.push('price = @price');
+      parameters.price = price;
+    }
+    if (image_url) {
+      updateFields.push('image_url = @image_url');
+      parameters.image_url = image_url;
+    }
+    if (harvest_date) {
+      updateFields.push('harvest_date = @harvest_date');
+      parameters.harvest_date = harvest_date;
+    }
+    if (freshness_rating !== undefined && freshness_rating !== null) {
+      updateFields.push('freshness_rating = @freshness_rating');
+      parameters.freshness_rating = freshness_rating;
+    }
+
+    // Check if there are fields to update in the `products` table
+    if (updateFields.length > 0) {
+      const productQuery = `
+        UPDATE Products
+        SET ${updateFields.join(', ')}, updated_at = GETDATE()
+        WHERE product_id = @product_id
       `;
 
-      const request = new sql.Request();
+      const productRequest = transaction.request();
       Object.keys(parameters).forEach(param => {
-          const value = parameters[param];
-          if (param === 'price') {
-              request.input(param, sql.Decimal(18, 2), value); // Bind price as a decimal
-          } else if (param === 'stock_quantity' || param === 'freshness_rating') {
-              request.input(param, sql.Int, value); // Bind integers
-          } else if (param === 'harvest_date') {
-              request.input(param, sql.DateTime, value); // Bind date
-          } else {
-              request.input(param, sql.VarChar, value); // Default to VarChar for strings
-          }
+        const value = parameters[param];
+        if (param === 'price') {
+          productRequest.input(param, sql.Decimal(18, 2), value); // Bind price as decimal
+        } else if (param === 'freshness_rating') {
+          productRequest.input(param, sql.Int, value); // Bind integers
+        } else if (param === 'harvest_date') {
+          productRequest.input(param, sql.DateTime, value); // Bind date
+        } else {
+          productRequest.input(param, sql.NVarChar, value); // Default to NVarChar for strings
+        }
       });
-      request.input('product_id', sql.Int, productId); // Bind product ID as an integer
+      productRequest.input('product_id', sql.Int, productId);
 
-      // Execute the query
-      const result = await request.query(query);
+      // Execute the `products` table update query
+      await productRequest.query(productQuery);
+    }
 
-      if (result.rowsAffected[0] > 0) {
-          return res.status(200).json({
-              success: true,
-              message: 'Product updated successfully!',
-          });
-      } else {
-          return res.status(404).json({
-              success: false,
-              error: 'Product not found or no changes were made.',
-          });
-      }
+    // Update the `stock` table if `stock_quantity` is provided
+    if (stock_quantity !== undefined && stock_quantity !== null) {
+      const stockQuery = `
+        UPDATE Stock
+        SET quantity = @stock_quantity, updated_at = GETDATE()
+        WHERE product_id = @product_id
+      `;
+
+      const stockRequest = transaction.request();
+      stockRequest.input('stock_quantity', sql.Int, stock_quantity);
+      stockRequest.input('product_id', sql.Int, productId);
+
+      // Execute the `stock` table update query
+      await stockRequest.query(stockQuery);
+    }
+
+    // Commit the transaction
+    await transaction.commit();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Product and stock updated successfully!',
+    });
   } catch (error) {
-      console.error('Error updating product:', error);
-      return res.status(500).json({
-          success: false,
-          error: 'Internal server error. Please try again later.',
-      });
+    if (transaction) {
+      await transaction.rollback();
+    }
+    console.error('Error updating product:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error. Please try again later.',
+    });
   }
 };
+
 
 
 // Delete a product by ID
