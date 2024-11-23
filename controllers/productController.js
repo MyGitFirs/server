@@ -267,9 +267,18 @@ const updateProduct = async (req, res) => {
 
       const request = new sql.Request();
       Object.keys(parameters).forEach(param => {
-          request.input(param, sql.VarChar, parameters[param]);
+          const value = parameters[param];
+          if (param === 'price') {
+              request.input(param, sql.Decimal(18, 2), value); // Bind price as a decimal
+          } else if (param === 'stock_quantity' || param === 'freshness_rating') {
+              request.input(param, sql.Int, value); // Bind integers
+          } else if (param === 'harvest_date') {
+              request.input(param, sql.DateTime, value); // Bind date
+          } else {
+              request.input(param, sql.VarChar, value); // Default to VarChar for strings
+          }
       });
-      request.input('product_id', sql.Int, productId);
+      request.input('product_id', sql.Int, productId); // Bind product ID as an integer
 
       // Execute the query
       const result = await request.query(query);
@@ -293,6 +302,7 @@ const updateProduct = async (req, res) => {
       });
   }
 };
+
 
 // Delete a product by ID
 const deleteProduct = async (req, res) => {
