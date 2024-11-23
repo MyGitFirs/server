@@ -87,7 +87,7 @@ const getProductById = async (req, res) => {
     const pool = await sql.connect(config);
     const result = await pool.request()
       .input('product_id', sql.Int, id) // Adjust type based on your database
-      .query('SELECT * FROM products WHERE product_id = @product_id');
+      .query('SELECT p.*,s.quantity FROM products p LEFT JOIN stock s ON p.product_id = s.product_id WHERE product_id = @product_id');
     res.status(200).json(result.recordset[0]);
   } catch (err) {
     res.status(500).send(err.message);
