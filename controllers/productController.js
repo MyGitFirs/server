@@ -245,10 +245,6 @@ const updateProduct = async (req, res) => {
           updateFields.push('freshness_rating = @freshness_rating');
           parameters.freshness_rating = freshness_rating;
       }
-      if (user_id) {
-          updateFields.push('user_id = @user_id');
-          parameters.user_id = user_id;
-      }
 
       // Check if there are fields to update
       if (updateFields.length === 0) {
