@@ -96,6 +96,7 @@ const getProductById = async (req, res) => {
           p.description, 
           p.price, 
           p.harvest_date, 
+          p.updated_at,
           p.image_url,
           s.quantity
         FROM products p
