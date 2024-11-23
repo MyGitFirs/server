@@ -83,16 +83,38 @@ const getDetailsProducts = async (req, res) => {
 // Get a product by ID
 const getProductById = async (req, res) => {
   const { id } = req.params;
+
   try {
     const pool = await sql.connect(config);
+
     const result = await pool.request()
-      .input('product_id', sql.Int, id) // Adjust type based on your database
-      .query('SELECT p.*,s.quantity FROM products p LEFT JOIN stock s ON p.product_id = s.product_id WHERE product_id = @product_id');
+      .input('product_id', sql.Int, id) // Ensure `id` is properly typed
+      .query(`
+        SELECT 
+          p.product_id, 
+          p.name, 
+          p.description, 
+          p.price, 
+          p.harvest_date, 
+          p.image_url,
+          s.quantity
+        FROM products p
+        LEFT JOIN stock s ON p.product_id = s.product_id
+        WHERE p.product_id = @product_id
+      `);
+
+    // Handle empty result set
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
     res.status(200).json(result.recordset[0]);
   } catch (err) {
-    res.status(500).send(err.message);
+    console.error('Error fetching product:', err);
+    res.status(500).json({ error: 'Internal server error' }); // Avoid exposing sensitive details
   }
 };
+
 
 // Get products by user ID
 const getProductsByUserId = async (req, res) => {
