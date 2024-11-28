@@ -139,7 +139,7 @@ async function updateOrderStatus(req, res) {
       });
     }
 
-    const userId = userResult.recordset[0].user_id; // Extract the userId
+    const userId = userResult.recordset[0].user_id; // Correctly fetch the userId
 
     // Update the order status
     const updateRequest = pool.request();
@@ -160,13 +160,9 @@ async function updateOrderStatus(req, res) {
           WHERE oi.order_id = @orderId
         `);
 
-      const orderItems = orderItemsResult.recordset;
-
-      // Loop through the order items to update stock quantities
-      for (const item of orderItems) {
+      for (const item of orderItemsResult.recordset) {
         const newQuantity = item.stock_quantity - item.quantity;
 
-        // Ensure the stock quantity does not go negative
         if (newQuantity < 0) {
           return res.status(400).json({
             success: false,
@@ -204,6 +200,7 @@ async function updateOrderStatus(req, res) {
     res.status(500).json({ success: false, error: "Failed to update order status" });
   }
 }
+
 
 
 
