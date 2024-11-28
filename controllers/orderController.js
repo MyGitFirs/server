@@ -122,7 +122,11 @@ async function getOrders(req, res) {
 // Controller to update order status
 async function updateOrderStatus(req, res) {
   const { orderId } = req.params;
-  const { status } = req.body;
+  const { status, userId } = req.body; // Ensure `userId` is passed in the request body
+
+  if (!userId) {
+    return res.status(400).json({ success: false, message: "User ID is required." });
+  }
 
   try {
     const pool = await sql.connect(config);
@@ -134,7 +138,7 @@ async function updateOrderStatus(req, res) {
       .input("status", sql.VarChar(50), status)
       .query("UPDATE orders SET orderStatus = @status WHERE order_id = @orderId");
 
-    // Update stock quantities if confirmed
+    // Update stock quantities if the status is confirmed
     if (status.toLowerCase() === "confirmed") {
       const fetchRequest = pool.request();
       const orderItemsResult = await fetchRequest
@@ -148,6 +152,8 @@ async function updateOrderStatus(req, res) {
 
       for (const item of orderItemsResult.recordset) {
         const newQuantity = item.stock_quantity - item.quantity;
+
+        // Check for insufficient stock
         if (newQuantity < 0) {
           return res.status(400).json({
             success: false,
@@ -163,7 +169,9 @@ async function updateOrderStatus(req, res) {
       }
     }
 
-    const io = req.app.get("io");
+    // Emit WebSocket notification
+    const io = req.app.get("io"); // Access the io instance from the main server
+
     if (io) {
       console.log(`Emitting orderNotification to user ${userId} for order ${orderId}`);
       io.to(userId).emit("orderNotification", {
@@ -182,7 +190,6 @@ async function updateOrderStatus(req, res) {
     res.status(500).json({ success: false, error: "Failed to update order status" });
   }
 }
-
 
 async function getOrderWithItems(req, res) {
   const { orderId } = req.params; 
