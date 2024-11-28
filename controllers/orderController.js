@@ -122,24 +122,37 @@ async function getOrders(req, res) {
 async function updateOrderStatus(req, res) {
   const { orderId } = req.params;
   const { status } = req.body;
-  console.log(orderId);
 
   try {
     const pool = await sql.connect(config);
 
-    // Create a request to update the order status
+    // Fetch the userId associated with the orderId
+    const userRequest = pool.request();
+    const userResult = await userRequest
+      .input("orderId", sql.Int, orderId)
+      .query("SELECT user_id FROM orders WHERE order_id = @orderId");
+
+    if (userResult.recordset.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    const userId = userResult.recordset[0].user_id; // Extract the userId
+
+    // Update the order status
     const updateRequest = pool.request();
     await updateRequest
-      .input('orderId', sql.Int, orderId)
-      .input('status', sql.VarChar(50), status)
-      .query('UPDATE orders SET orderStatus = @status WHERE order_id = @orderId');
+      .input("orderId", sql.Int, orderId)
+      .input("status", sql.VarChar(50), status)
+      .query("UPDATE orders SET orderStatus = @status WHERE order_id = @orderId");
 
     // If the status is 'confirmed', update the stock quantities
-    if (status.toLowerCase() === 'confirmed') {
-      // Create a new request to fetch order items
+    if (status.toLowerCase() === "confirmed") {
       const fetchRequest = pool.request();
       const orderItemsResult = await fetchRequest
-        .input('orderId', sql.Int, orderId)
+        .input("orderId", sql.Int, orderId)
         .query(`
           SELECT oi.product_id, oi.quantity, s.quantity AS stock_quantity, s.stock_id
           FROM orderItems oi
@@ -157,40 +170,41 @@ async function updateOrderStatus(req, res) {
         if (newQuantity < 0) {
           return res.status(400).json({
             success: false,
-            message: `Insufficient stock for product ID: ${item.product_id}`
+            message: `Insufficient stock for product ID: ${item.product_id}`,
           });
         }
 
-        // Create a new request to update stock quantities
         const updateStockRequest = pool.request();
         await updateStockRequest
-          .input('stockId', sql.Int, item.stock_id)
-          .input('newQuantity', sql.Int, newQuantity)
-          .query('UPDATE stock SET quantity = @newQuantity WHERE stock_id = @stockId');
+          .input("stockId", sql.Int, item.stock_id)
+          .input("newQuantity", sql.Int, newQuantity)
+          .query("UPDATE stock SET quantity = @newQuantity WHERE stock_id = @stockId");
       }
     }
+
+    // Emit the WebSocket notification
     const io = req.app.get("io");
     if (io) {
       console.log(`Emitting orderNotification to user ${userId} for order ${orderId}`);
-    
-      io.to(userId).emit("orderNotification", {
+      io.to(userId.toString()).emit("orderNotification", {
         type: "orderStatusUpdated",
         message: `Your order #${orderId} status has been updated to "${status}".`,
         orderId,
         status,
       });
-    
+
       console.log(`Notification sent: Order ID ${orderId}, Status: ${status}`);
     } else {
       console.error("WebSocket server (io) is not initialized");
     }
 
-    res.status(200).json({ success: true, message: 'Order status updated' });
+    res.status(200).json({ success: true, message: "Order status updated" });
   } catch (err) {
-    console.error('Error updating order status:', err);
-    res.status(500).json({ success: false, error: 'Failed to update order status' });
+    console.error("Error updating order status:", err);
+    res.status(500).json({ success: false, error: "Failed to update order status" });
   }
 }
+
 
 
 async function getOrderWithItems(req, res) {
