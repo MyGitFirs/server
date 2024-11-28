@@ -1,4 +1,6 @@
 const express = require('express');
+const http = require('http'); // Import the http module
+const { Server } = require('socket.io'); // Import the Socket.IO server
 const { connectDB } = require('./db');
 const { authenticateToken } = require('./middleware/middleware'); 
 const authRoutes = require('./routes/authRoutes');
@@ -15,6 +17,28 @@ const adminRoutes = require('./routes/adminRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const server = http.createServer(app); // Wrap Express app with HTTP server
+const io = new Server(server); // Initialize Socket.IO server
+
+// Middleware
+app.use(express.json());
+
+// WebSocket connection handling
+io.on("connection", (socket) => {
+  console.log("User connected:", socket.id);
+
+  socket.on("joinRoom", (userId) => {
+    socket.join(userId); // User joins a room based on their userId
+    console.log(`User ${userId} joined room.`);
+  });
+
+  socket.on("disconnect", () => {
+    console.log("User disconnected:", socket.id);
+  });
+});
+
+// Make WebSocket server available to routes and controllers
+app.set("io", io);
 
 // Middleware
 app.use(express.json());
@@ -39,9 +63,7 @@ app.use('/api', addressRoutes);
 app.use('/api/sales',salesRoutes);
 app.use('/api/admin',adminRoutes);
 
-
-
 // Start server
-app.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
 });

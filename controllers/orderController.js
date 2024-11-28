@@ -1,6 +1,14 @@
 const sql = require('mssql');
 const config = require('../db'); 
 const { recordSale } = require('./salesController');
+// WebSocket instance (will be set by the server)
+let io;
+
+// Set the Socket.IO instance
+function setSocketIo(socketIoInstance) {
+  io = socketIoInstance;
+}
+
 
 async function generateUniqueOrderId(pool) {
   let orderId;
@@ -161,6 +169,20 @@ async function updateOrderStatus(req, res) {
           .query('UPDATE stock SET quantity = @newQuantity WHERE stock_id = @stockId');
       }
     }
+    if (io) {
+      console.log(`Emitting orderNotification to user ${userId} for order ${orderId}`);
+    
+      io.to(userId).emit("orderNotification", {
+        type: "orderStatusUpdated",
+        message: `Your order #${orderId} status has been updated to "${status}".`,
+        orderId,
+        status,
+      });
+    
+      console.log(`Notification sent: Order ID ${orderId}, Status: ${status}`);
+    } else {
+      console.error("WebSocket server (io) is not initialized");
+    }    
 
     res.status(200).json({ success: true, message: 'Order status updated' });
   } catch (err) {
@@ -361,4 +383,4 @@ async function cancelOrder(req, res) {
 
 
 
-module.exports = { createOrder, getOrders, updateOrderStatus, getOrderWithItems, getOrdersByUserId,getOrderDetails, cancelOrder };
+module.exports = { createOrder, getOrders, updateOrderStatus, getOrderWithItems, getOrdersByUserId,getOrderDetails, cancelOrder, setSocketIo };
