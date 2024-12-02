@@ -1,39 +1,40 @@
 const sql = require('mssql');
 const config = require('../db'); // Ensure db.js exports the configuration to connect to SQL Server
-
+const moment = require('moment-timezone');
 // Function to record sales
 async function recordSale(orderId, cartItems) {
-    let transaction; // Declare transaction for recording sales
-  
-    try {
-      const pool = await sql.connect(config);
-      transaction = new sql.Transaction(pool);
-      await transaction.begin();
-  
-      for (const item of cartItems) {
-        const saleRequest = new sql.Request(transaction);
-  
-        // Insert each item in cartItems as a sale record
-        await saleRequest
-          .input('orderId', sql.Int, orderId)
-          .input('productId', sql.Int, item.productId)
-          .input('quantitySold', sql.Int, item.quantity)
-          .input('salePrice', sql.Decimal(10, 2), item.price)
-          .input('totalAmount', sql.Decimal(10, 2), item.price * item.quantity) // Calculate total amount for each item
-          .input('saleDate', sql.DateTime, new Date()) // Add the sale date
-          .query(
-            `INSERT INTO sales (order_id, product_id, quantity_sold, sale_price, total_amount, sale_date) 
-             VALUES (@orderId, @productId, @quantitySold, @salePrice, @totalAmount, @saleDate)`
-          );
-      }
-  
-      await transaction.commit();
-      console.log('Sales recorded successfully');
-    } catch (err) {
-      if (transaction) await transaction.rollback();
-      console.error('Error recording sales:', err);
+  let transaction;
+
+  try {
+    const pool = await sql.connect(config);
+    transaction = new sql.Transaction(pool);
+    await transaction.begin();
+
+    for (const item of cartItems) {
+      const saleRequest = new sql.Request(transaction);
+
+      const saleDate = moment().tz('Asia/Manila').toDate();
+
+      await saleRequest
+        .input('orderId', sql.Int, orderId)
+        .input('productId', sql.Int, item.productId)
+        .input('quantitySold', sql.Int, item.quantity)
+        .input('salePrice', sql.Decimal(10, 2), item.price)
+        .input('totalAmount', sql.Decimal(10, 2), item.price * item.quantity)
+        .input('saleDate', sql.DateTime, saleDate)
+        .query(
+          `INSERT INTO sales (order_id, product_id, quantity_sold, sale_price, total_amount, sale_date) 
+           VALUES (@orderId, @productId, @quantitySold, @salePrice, @totalAmount, @saleDate)`
+        );
     }
+
+    await transaction.commit();
+    console.log('Sales recorded successfully');
+  } catch (err) {
+    if (transaction) await transaction.rollback();
+    console.error('Error recording sales:', err);
   }
+}
   
   async function getRecentSales(req, res) {
     const { user_id } = req.params; 

@@ -1,6 +1,8 @@
 const sql = require('mssql');
 const config = require('../db'); 
 const { recordSale } = require('./salesController');
+const moment = require('moment-timezone');
+
 // WebSocket instance (will be set by the server)
 let io;
 
@@ -33,7 +35,7 @@ async function generateUniqueOrderId(pool) {
 
 async function createOrder(req, res) {
   const { userId, totalAmount, paymentMethod, address_id, cartItems } = req.body;
-  console.log(address_id);
+  console.log(req.body);
   let transaction;
 
   try {
@@ -47,6 +49,7 @@ async function createOrder(req, res) {
 
     // Use the transaction for the requests
     const request = new sql.Request(transaction);
+    const orderDate = moment().tz('Asia/Manila').toDate();
 
     // Insert into Orders table with the generated orderId
     await request
@@ -55,8 +58,9 @@ async function createOrder(req, res) {
       .input("totalAmount", sql.Decimal(10, 2), totalAmount)
       .input("paymentMethod", sql.VarChar(50), paymentMethod)
       .input("address_id", sql.Int, address_id)
+      .input("orderDate", sql.DateTime, orderDate)
       .query(
-        "INSERT INTO orders (order_id, user_id, totalAmount, paymentMethod, address_id) VALUES (@orderId, @userId, @totalAmount, @paymentMethod, @address_id)"
+        "INSERT INTO orders (order_id, user_id, totalAmount, paymentMethod, address_id,orderDate) VALUES (@orderId, @userId, @totalAmount, @paymentMethod, @address_id, @orderDate)"
       );
 
     // Insert each item in cartItems into OrderItems table
