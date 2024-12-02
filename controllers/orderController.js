@@ -32,7 +32,7 @@ async function generateUniqueOrderId(pool) {
 }
 
 async function createOrder(req, res) {
-  const { userId, totalAmount,status, paymentMethod, address_id, cartItems } = req.body;
+  const { userId, totalAmount, status, paymentMethod, address_id, cartItems } = req.body;
   console.log(address_id);
   let transaction;
 
@@ -57,7 +57,7 @@ async function createOrder(req, res) {
       .input("status", sql.VarChar(50), status)
       .input("address_id", sql.Int, address_id)
       .query(
-        "INSERT INTO orders (order_id, user_id, totalAmount, paymentMethod,status, address_id) VALUES (@orderId, @userId, @totalAmount, @paymentMethod, @status, @address_id)"
+        "INSERT INTO orders (order_id, user_id, totalAmount, paymentMethod, orderStatus, address_id) VALUES (@orderId, @userId, @totalAmount, @paymentMethod, @status, @address_id)"
       );
 
     // Insert each item in cartItems into OrderItems table
