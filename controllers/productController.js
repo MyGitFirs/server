@@ -94,7 +94,9 @@ const getProductById = async (req, res) => {
           p.product_id, 
           p.name, 
           p.description, 
-          p.price, 
+          p.price,
+          p.discount_price,
+          p.discount_percentage,
           p.harvest_date, 
           p.updated_at,
           p.image_url,
@@ -210,7 +212,18 @@ const addProduct = async (req, res) => {
 // Update a product by ID
 const updateProduct = async (req, res) => {
   const productId = req.params.id;
-  const { name, description, price, stock_quantity, image_url, harvest_date, freshness_rating, user_id } = req.body;
+  const {
+    name,
+    description,
+    price,
+    stock_quantity,
+    image_url,
+    harvest_date,
+    freshness_rating,
+    discount_percentage,
+    discount_price,
+    user_id,
+  } = req.body;
 
   let transaction;
 
@@ -249,6 +262,14 @@ const updateProduct = async (req, res) => {
       updateFields.push('freshness_rating = @freshness_rating');
       parameters.freshness_rating = freshness_rating;
     }
+    if (discount_percentage !== undefined && discount_percentage !== null) {
+      updateFields.push('discount_percentage = @discount_percentage');
+      parameters.discount_percentage = discount_percentage;
+    }
+    if (discount_price !== undefined && discount_price !== null) {
+      updateFields.push('discount_price = @discount_price');
+      parameters.discount_price = discount_price;
+    }
 
     // Check if there are fields to update in the `products` table
     if (updateFields.length > 0) {
@@ -259,11 +280,11 @@ const updateProduct = async (req, res) => {
       `;
 
       const productRequest = transaction.request();
-      Object.keys(parameters).forEach(param => {
+      Object.keys(parameters).forEach((param) => {
         const value = parameters[param];
-        if (param === 'price') {
-          productRequest.input(param, sql.Decimal(18, 2), value); // Bind price as decimal
-        } else if (param === 'freshness_rating') {
+        if (param === 'price' || param === 'discount_price') {
+          productRequest.input(param, sql.Decimal(18, 2), value); // Bind decimals
+        } else if (param === 'freshness_rating' || param === 'discount_percentage') {
           productRequest.input(param, sql.Int, value); // Bind integers
         } else if (param === 'harvest_date') {
           productRequest.input(param, sql.DateTime, value); // Bind date
@@ -311,6 +332,7 @@ const updateProduct = async (req, res) => {
     });
   }
 };
+
 
 
 
