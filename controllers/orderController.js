@@ -76,10 +76,6 @@ async function createOrder(req, res) {
         );
     }
 
-    // Commit the transaction
-    await transaction.commit();
-    await recordSale(orderId, cartItems);
-
     res.status(201).json({ success: true, orderId });
   } catch (err) {
     // Rollback the transaction if it was started
@@ -123,6 +119,7 @@ async function getOrders(req, res) {
 
 
 // Controller to update order status
+// Controller to update order status
 async function updateOrderStatus(req, res) {
   const { orderId } = req.params;
   const { status } = req.body;
@@ -143,7 +140,7 @@ async function updateOrderStatus(req, res) {
       });
     }
 
-    const userId = userResult.recordset[0].user_id; // Correctly fetch the userId
+    const userId = userResult.recordset[0].user_id;
 
     // Update the order status
     const updateRequest = pool.request();
@@ -152,8 +149,8 @@ async function updateOrderStatus(req, res) {
       .input("status", sql.VarChar(50), status)
       .query("UPDATE orders SET orderStatus = @status WHERE order_id = @orderId");
 
-    // If the status is 'confirmed', update the stock quantities
-    if (status.toLowerCase() === "confirmed") {
+    // If the status is 'confirmed', update the stock quantities and record the sale
+    if (status.toLowerCase() === "Confirmed") {
       const fetchRequest = pool.request();
       const orderItemsResult = await fetchRequest
         .input("orderId", sql.Int, orderId)
@@ -180,6 +177,13 @@ async function updateOrderStatus(req, res) {
           .input("newQuantity", sql.Int, newQuantity)
           .query("UPDATE stock SET quantity = @newQuantity WHERE stock_id = @stockId");
       }
+
+      // Record the sale
+      const orderItems = orderItemsResult.recordset.map((item) => ({
+        productId: item.product_id,
+        quantity: item.quantity,
+      }));
+      await recordSale(orderId, orderItems);
     }
 
     // Emit the WebSocket notification
@@ -204,6 +208,7 @@ async function updateOrderStatus(req, res) {
     res.status(500).json({ success: false, error: "Failed to update order status" });
   }
 }
+
 
 
 
