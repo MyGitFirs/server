@@ -91,15 +91,7 @@ const getProductById = async (req, res) => {
       .input('product_id', sql.Int, id) // Ensure `id` is properly typed
       .query(`
         SELECT 
-          p.product_id, 
-          p.name, 
-          p.description, 
-          p.price,
-          p.discount_price,
-          p.discount_percentage,
-          p.harvest_date, 
-          p.updated_at,
-          p.image_url,
+          p.*,
           s.quantity
         FROM products p
         LEFT JOIN stock s ON p.product_id = s.product_id
