@@ -47,12 +47,33 @@ async function createOrder(req, res) {
     // Generate a unique 6-digit order ID
     const orderId = await generateUniqueOrderId(pool);
 
-    // Use the transaction for the requests
-    const request = new sql.Request(transaction);
     const orderDate = moment().tz('Asia/Manila').toDate();
 
+    // Check stock availability for each product
+    for (const item of cartItems) {
+      const stockCheckRequest = new sql.Request(transaction); // Use the transaction for stock checking
+      const stockResult = await stockCheckRequest
+        .input("productId", sql.Int, item.productId)
+        .query(
+          "SELECT stock FROM products WHERE product_id = @productId"
+        );
+
+      if (stockResult.recordset.length === 0) {
+        throw new Error(`Product with ID ${item.productId} does not exist`);
+      }
+
+      const availableStock = stockResult.recordset[0].stock;
+
+      if (availableStock < item.quantity) {
+        throw new Error(
+          `Insufficient stock for product ID ${item.productId}. Available: ${availableStock}, Required: ${item.quantity}`
+        );
+      }
+    }
+
     // Insert into Orders table with the generated orderId
-    await request
+    const orderRequest = new sql.Request(transaction);
+    await orderRequest
       .input("orderId", sql.Int, orderId)
       .input("userId", sql.Int, userId)
       .input("totalAmount", sql.Decimal(10, 2), totalAmount)
@@ -60,12 +81,12 @@ async function createOrder(req, res) {
       .input("address_id", sql.Int, address_id)
       .input("orderDate", sql.DateTime, orderDate)
       .query(
-        "INSERT INTO orders (order_id, user_id, totalAmount, paymentMethod, address_id,orderDate) VALUES (@orderId, @userId, @totalAmount, @paymentMethod, @address_id, @orderDate)"
+        "INSERT INTO orders (order_id, user_id, totalAmount, paymentMethod, address_id, orderDate) VALUES (@orderId, @userId, @totalAmount, @paymentMethod, @address_id, @orderDate)"
       );
 
-    // Insert each item in cartItems into OrderItems table
+    // Insert each item in cartItems into OrderItems table and decrement stock
     for (const item of cartItems) {
-      const itemRequest = new sql.Request(transaction); // New request instance for each item
+      const itemRequest = new sql.Request(transaction);
       await itemRequest
         .input("orderId", sql.Int, orderId)
         .input("productId", sql.Int, item.productId)
@@ -74,8 +95,18 @@ async function createOrder(req, res) {
         .query(
           "INSERT INTO orderItems (order_id, product_id, quantity, price) VALUES (@orderId, @productId, @quantity, @price)"
         );
+
+      // Decrement stock
+      const stockUpdateRequest = new sql.Request(transaction);
+      await stockUpdateRequest
+        .input("productId", sql.Int, item.productId)
+        .input("quantity", sql.Int, item.quantity)
+        .query(
+          "UPDATE products SET stock = stock - @quantity WHERE product_id = @productId"
+        );
     }
 
+    await transaction.commit(); // Commit the transaction
     res.status(201).json({ success: true, orderId });
   } catch (err) {
     // Rollback the transaction if it was started
@@ -87,6 +118,7 @@ async function createOrder(req, res) {
     });
   }
 }
+
 
 async function getOrders(req, res) {
   const { user_id } = req.params; 
