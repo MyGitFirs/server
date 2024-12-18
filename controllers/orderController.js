@@ -174,7 +174,7 @@ async function updateOrderStatus(req, res) {
       .query("UPDATE orders SET orderStatus = @status WHERE order_id = @orderId");
 
     // If the status is 'confirmed', update the stock quantities and record the sale
-    if (status.toLowerCase() === "Confirmed") {
+    if (status === "Confirmed") {
       const fetchRequest = pool.request();
       const orderItemsResult = await fetchRequest
         .input("orderId", sql.Int, orderId)
