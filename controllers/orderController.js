@@ -95,6 +95,7 @@ async function createOrder(req, res) {
         .query(
           "INSERT INTO orderItems (order_id, product_id, quantity, price) VALUES (@orderId, @productId, @quantity, @price)"
         );
+
     }
 
     await transaction.commit(); // Commit the transaction
@@ -174,7 +175,7 @@ async function updateOrderStatus(req, res) {
       .query("UPDATE orders SET orderStatus = @status WHERE order_id = @orderId");
 
     // If the status is 'confirmed', update the stock quantities and record the sale
-    if (status === "Confirmed") {
+    if (status.toLowerCase() === "Confirmed") {
       const fetchRequest = pool.request();
       const orderItemsResult = await fetchRequest
         .input("orderId", sql.Int, orderId)
@@ -206,6 +207,7 @@ async function updateOrderStatus(req, res) {
       const orderItems = orderItemsResult.recordset.map((item) => ({
         productId: item.product_id,
         quantity: item.quantity,
+        price: item.price,
       }));
       await recordSale(orderId, orderItems);
     }
