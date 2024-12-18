@@ -55,14 +55,14 @@ async function createOrder(req, res) {
       const stockResult = await stockCheckRequest
         .input("productId", sql.Int, item.productId)
         .query(
-          "SELECT stock FROM products WHERE product_id = @productId"
+          "SELECT quantity FROM stock WHERE product_id = @productId"
         );
 
       if (stockResult.recordset.length === 0) {
         throw new Error(`Product with ID ${item.productId} does not exist`);
       }
 
-      const availableStock = stockResult.recordset[0].stock;
+      const availableStock = stockResult.recordset[0].quantity;
 
       if (availableStock < item.quantity) {
         throw new Error(
@@ -102,7 +102,7 @@ async function createOrder(req, res) {
         .input("productId", sql.Int, item.productId)
         .input("quantity", sql.Int, item.quantity)
         .query(
-          "UPDATE products SET stock = stock - @quantity WHERE product_id = @productId"
+          "UPDATE stock SET quantity = quantity - @quantity WHERE product_id = @productId"
         );
     }
 
@@ -118,6 +118,7 @@ async function createOrder(req, res) {
     });
   }
 }
+
 
 
 async function getOrders(req, res) {
