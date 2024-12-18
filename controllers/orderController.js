@@ -180,7 +180,7 @@ async function updateOrderStatus(req, res) {
       const orderItemsResult = await fetchRequest
         .input("orderId", sql.Int, orderId)
         .query(`
-          SELECT oi.product_id, oi.quantity, s.quantity AS stock_quantity, s.stock_id
+          SELECT oi.product_id, oi.quantity, oi.price, s.quantity AS stock_quantity, s.stock_id
           FROM orderItems oi
           INNER JOIN stock s ON oi.product_id = s.product_id
           WHERE oi.order_id = @orderId
