@@ -95,15 +95,6 @@ async function createOrder(req, res) {
         .query(
           "INSERT INTO orderItems (order_id, product_id, quantity, price) VALUES (@orderId, @productId, @quantity, @price)"
         );
-
-      // Decrement stock
-      const stockUpdateRequest = new sql.Request(transaction);
-      await stockUpdateRequest
-        .input("productId", sql.Int, item.productId)
-        .input("quantity", sql.Int, item.quantity)
-        .query(
-          "UPDATE stock SET quantity = quantity - @quantity WHERE product_id = @productId"
-        );
     }
 
     await transaction.commit(); // Commit the transaction
